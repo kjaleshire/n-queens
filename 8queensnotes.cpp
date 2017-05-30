@@ -1,132 +1,118 @@
-// c++ stack
-
-// 1 byte for current allowed state
-// 1 byte for attack mask AKA new queen placement
-// 3 byte for left-right-center attack
-// 1 scratch byte
+// c++ vector
 
 // next state:
-//   find least significant set bit position in current allowed state
-
-//   if none
-//     if stack is empty
+//   if current allowed state is empty
+//     if vector is empty
 //       exit
-//     pop center-right-left attack states
-//     pop allowed state
+//     pop last state
 //     GOTO next state
 
+//   find least significant set bit position in current allowed state
+
 //   clear said bit in current allowed state
-//   if stack size is 7 * level size
+//   if vector size is N - 1
 //     increment solution counter
 //     print solution
 //     GOTO next state
 
-//   push current allowed state
-//   push left-right-center attack states
+//   push current state
 
-//   copy attack mask to scratch byte
-//   shift scratch byte left by index of last cleared byte
+//   shift attack mask left by index of last cleared byte
 //   OR with and save to each current attack state
 
 //   shift left attack right by 1
 //   shift right attach left by 1
 
-//   OR left-right-center bytes into scratch byte
-//   invert scratch byte
+//   OR left-right-center attacks into scratch
+//   invert scratch
 //   copy to current allowed state
 //   GOTO next state
 
+#include <bitset>
+#include <cmath>
 #include <iostream>
 #include <vector>
-#include <cstdint>
-#include <bitset>
 
-#include <strings.h>
+#ifdef _MSC_VER
+#include <intrin.h>
+#pragma intrinsic(_BitScanForward)
+#endif
 
-void printRow(uint8_t state) {
-    int bitIndex = ffs(state) - 1;
-    for (int i = 0; i < bitIndex; i++) {
-      printf("_ ");
-    }
-    printf("Q ");
-    for (int i = 0; i < (8 - bitIndex); i++) {
-      printf("_ ");
-    }
-    printf("\n");
+#define N 8
+
+struct SolutionState {
+  std::bitset<N> allowedState;
+  uint attackLeft;
+  uint attackRight;
+  uint attackCenter;
+  uint queenIndex;
+};
+
+void printRow(uint index) {
+  for (int i = 0; i < (N - 1 - index); i++) {
+    std::cout << "_ ";
+  }
+  std::cout << "Q ";
+  for (int i = 0; i < index; i++) {
+    std::cout << "_ ";
+  }
+  std::cout << std::endl;
 }
 
-void printSolution(std::vector<uint8_t>& solutionStates, uint8_t allowedState) {
-  int index = 0;
-  while (index < solutionStates.size() - 1) {
-    uint8_t state = solutionStates[index];
-    printRow(state);
-    index = index + 3;
+void printSolution(std::vector<SolutionState>& solutionStates, SolutionState currentState) {
+  for (SolutionState state : solutionStates) {
+    printRow(state.queenIndex);
   }
-  printRow(allowedState);
-  printf("======== ======== ======== ========\n");
+  printRow(currentState.queenIndex);
+  std::cout << "======== ========" << std::endl;
 }
 
 int main(int argc, char ** argv) {
-  uint8_t allowedState = 0b11111111;
-  uint8_t attackLeft = 0b00000000;
-  uint8_t attackRight = 0b00000000;
-  uint8_t attackCenter = 0b00000000;
-
-  uint8_t attackMask = 0b00000001;
+  SolutionState state = { std::pow(2, N) - 1, 0, 0, 0, 0};
 
   int solutionCounter = 0;
 
-  std::vector<uint8_t> solutionStates;
-  int x = 0;
-  while(x < 100) {
-    if(allowedState == 0) {
+  std::vector<SolutionState> solutionStates;
+  solutionStates.reserve(N - 1);
+
+  while(true) {
+    if(state.allowedState == 0) {
       // backtrack
       if (solutionStates.size() == 0)
         break;
 
-      attackCenter = solutionStates.back();
-      solutionStates.pop_back();
-      attackRight = solutionStates.back();
-      solutionStates.pop_back();
-      attackLeft = solutionStates.back();
-      solutionStates.pop_back();
-      allowedState = solutionStates.back();
+      state = solutionStates.back();
       solutionStates.pop_back();
 
       continue;
     }
 
-    int bitIndex = ffs(allowedState) - 1;
-    std::cout << "BI " << std::to_string(bitIndex) << std::endl;
-
-    allowedState = allowedState & (0xFF << bitIndex);
-    std::cout << "AS " << std::bitset<8>(allowedState) << std::endl;
+#ifdef _MSC_VER
+    state.queenIndex = _BitScanForward(state.allowedState);
+#else
+    state.queenIndex = __builtin_ctz(state.allowedState.to_ulong());
+#endif
+    state.allowedState = state.allowedState.to_ulong() & ~(1 << state.queenIndex);
 
     // win
-    if (solutionStates.size() == (7 * 4)) {
+    if (solutionStates.size() == N - 1) {
       solutionCounter += 1;
-      printSolution(solutionStates, allowedState);
-      if (solutionCounter == 1)
-        break;
+      printSolution(solutionStates, state);
       continue;
     }
 
-    solutionStates.push_back(allowedState);
-    solutionStates.push_back(attackLeft);
-    solutionStates.push_back(attackRight);
-    solutionStates.push_back(attackCenter);
+    solutionStates.push_back(std::move(state));
 
-    uint8_t attackMask = 0x000000001 << bitIndex;
+    uint attackMask = 1 << state.queenIndex;
 
-    attackLeft = attackMask | attackLeft;
-    attackRight = attackMask | attackRight;
-    attackCenter = attackMask | attackCenter;
+    state.attackLeft = attackMask | state.attackLeft;
+    state.attackRight = attackMask | state.attackRight;
+    state.attackCenter = attackMask | state.attackCenter;
 
-    attackLeft = attackLeft << 1;
-    attackRight = attackRight >> 1;
+    state.attackLeft = state.attackLeft >> 1;
+    state.attackRight = state.attackRight << 1;
 
-    allowedState = ~(attackLeft | attackRight | attackCenter);
-    x++;
+    state.allowedState = ~(state.attackLeft | state.attackRight | state.attackCenter);
   }
 
   // done

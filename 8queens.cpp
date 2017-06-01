@@ -42,13 +42,13 @@
 
 struct SolutionState {
   std::bitset<N> allowedState;
-  uint attackLeft;
-  uint attackRight;
-  uint attackCenter;
-  uint queenIndex;
+  unsigned int attackLeft;
+  unsigned int attackRight;
+  unsigned int attackCenter;
+  unsigned long queenIndex;
 };
 
-void printRow(uint index) {
+void printRow(unsigned int index) {
   for (int i = 0; i < (N - 1 - index); i++) {
     std::cout << "_ ";
   }
@@ -88,7 +88,7 @@ int main(int argc, char ** argv) {
     }
 
 #ifdef _MSC_VER
-    state.queenIndex = _BitScanForward(state.allowedState);
+    _BitScanForward(&state.queenIndex, state.allowedState.to_ulong());
 #else
     state.queenIndex = __builtin_ctz(state.allowedState.to_ulong());
 #endif
@@ -103,7 +103,7 @@ int main(int argc, char ** argv) {
 
     solutionStates.push_back(std::move(state));
 
-    uint attackMask = 1 << state.queenIndex;
+    unsigned int attackMask = 1 << state.queenIndex;
 
     state.attackLeft = attackMask | state.attackLeft;
     state.attackRight = attackMask | state.attackRight;

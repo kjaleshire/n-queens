@@ -1,33 +1,3 @@
-// c++ vector
-
-// next state:
-//   if current allowed state is empty
-//     if vector is empty
-//       exit
-//     pop last state
-//     GOTO next state
-
-//   find least significant set bit position in current allowed state
-
-//   clear said bit in current allowed state
-//   if vector size is N_QUEENS - 1
-//     increment solution counter
-//     print solution
-//     GOTO next state
-
-//   push current state
-
-//   shift attack mask left by index of last cleared byte
-//   OR with and save to each current attack state
-
-//   shift left attack right by 1
-//   shift right attach left by 1
-
-//   OR left-right-center attacks into scratch
-//   invert scratch
-//   copy to current allowed state
-//   GOTO next state
-
 #include <bitset>
 #include <cmath>
 #include <iostream>
@@ -41,83 +11,94 @@
 #endif
 
 #define N_QUEENS 8
-#define NO_PRINT 1
+// #define NO_PRINT 1
 #define THREADS 8
 
 struct SolutionState {
-  SolutionState& lastState;
+  SolutionState* lastState;
   std::bitset<N_QUEENS> allowedState;
-  unsigned int attackLeft;
-  unsigned int attackRight;
-  unsigned int attackCenter;
+  unsigned long attackLeft;
+  unsigned long attackRight;
+  unsigned long attackCenter;
   unsigned long queenIndex;
-  unsigned int counter;
+  unsigned long counter;
 };
 
-void printRow(unsigned int index) {
-  for (int i = 0; i < (N_QUEENS - 1 - index); i++) {
+void printRow(unsigned long index) {
+  for (auto i = 0; i < (N_QUEENS - 1 - index); i++) {
     std::cout << "_ ";
   }
   std::cout << "Q ";
-  for (int i = 0; i < index; i++) {
+  for (auto i = 0; i < index; i++) {
     std::cout << "_ ";
   }
   std::cout << std::endl;
 }
 
-void spawn_worker(SolutionState& state, std::atomic_int& solutionCounter) {
-  printRow(state.queenIndex);
+#ifdef NO_PRINT
+void printSolution(SolutionState& state) {}
+#else
+void printSolution(SolutionState& state) {
+  std::vector<unsigned long> queenIndexes;
 
-  unsigned int attackMask = state.allowedState.to_ulong();
+  SolutionState* s = &state;
+  while(s != nullptr) {
+    queenIndexes.push_back(s->queenIndex);
+    s = s->lastState;
+  }
 
-  state.attackLeft = attackMask | state.attackLeft;
-  state.attackRight = attackMask | state.attackRight;
-  state.attackCenter = attackMask | state.attackCenter;
+  for (auto rit = queenIndexes.rbegin(); rit != queenIndexes.rend(); ++rit)
+    printRow(*rit);
 
-  state.attackLeft = state.attackLeft >> 1;
-  state.attackRight = state.attackRight << 1;
+  std::cout << "======== ========" << std::endl;
+}
+#endif
 
-  state.allowedState = ~(state.attackLeft | state.attackRight | state.attackCenter);
-
+void spawnWorker(SolutionState& state, std::atomic_int& solutionCounter) {
   // win
-  if (state.counter == 7 && state.allowedState.any()) {
-    std::cout << "solution!" << std::endl;
-    exit(0);
+  if (state.counter == N_QUEENS - 1 && state.allowedState.any()) {
+    printSolution(state);
+
     solutionCounter++;
     return;
   }
 
-  state.counter += 1;
-  while(state.allowedState.any()) {
-#ifdef _MSC_VER
-    _BitScanForward(&state.queenIndex, state.allowedState.to_ulong());
-#else
-    state.queenIndex = __builtin_ctz(state.allowedState.to_ulong());
-#endif
-    state.allowedState.set(state.queenIndex, 0);
-    SolutionState newState = state;
-    newState.lastState = state;
+  auto attackMask = state.allowedState.to_ulong();
 
+  auto attackLeft = (attackMask | state.attackLeft) >> 1;
+  auto attackRight = (attackMask | state.attackRight) << 1;
+  auto attackCenter = attackMask | state.attackCenter;
+
+  SolutionState newState = {
+    &state, 0, attackLeft, attackRight, attackCenter, 0, state.counter + 1,
+  };
+
+  std::bitset<N_QUEENS> newAllowedState = ~(newState.attackLeft | newState.attackRight | newState.attackCenter);
+
+  while(newAllowedState.any()) {
+#ifdef _MSC_VER
+    _BitScanForward(&newState.queenIndex, newAllowedState.to_ulong());
+#else
+    newState.queenIndex = __builtin_ctz(newAllowedState.to_ulong());
+#endif
+    newAllowedState.set(newState.queenIndex, 0);
     newState.allowedState = 1 << newState.queenIndex;
 
-    spawn_worker(newState, solutionCounter);
+    spawnWorker(newState, solutionCounter);
   }
 }
 
 int main(int argc, char **argv) {
-  SolutionState state = { 0, 0, 0, 0, 0, 0};
+  SolutionState state = { nullptr, 0, 0, 0, 0, 0, 0};
   std::atomic_int solutionCounter(0);
-  unsigned long queenIndex;
 
-  for(unsigned long i = 0; i < N_QUEENS; i++) {
-    SolutionState newState = state;
-
+  for(auto i = 0; i < N_QUEENS; i++) {
     state.queenIndex = i;
-    newState.allowedState.set(i, 1);
+    state.allowedState = 1 << i;
 
-    spawn_worker(newState, solutionCounter);
+    spawnWorker(state, solutionCounter);
   }
 
   // done
-  std::cout << "Solutions found: " << std::to_string(solutionCounter) << std::endl;
+  std::cout << "Solutions found: " << solutionCounter << std::endl;
 }

@@ -39,7 +39,7 @@
 #endif
 
 #define N_QUEENS 8
-
+// #define NO_PRINT 1
 #define THREADS 8
 
 struct SolutionState {
@@ -47,21 +47,23 @@ struct SolutionState {
   unsigned int attackLeft;
   unsigned int attackRight;
   unsigned int attackCenter;
-  unsigned long queenIndex;
+  unsigned int queenIndex;
 };
 
 void printRow(unsigned int index) {
-  for (int i = 0; i < (N_QUEENS - 1 - index); i++) {
+  for (auto i = 0; i < (N_QUEENS - 1 - index); i++) {
     std::cout << "_ ";
   }
   std::cout << "Q ";
-  for (int i = 0; i < index; i++) {
+  for (auto i = 0; i < index; i++) {
     std::cout << "_ ";
   }
   std::cout << std::endl;
 }
 
-#ifndef NO_PRINT
+#ifdef NO_PRINT
+void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {}
+#else
 void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {
   for (SolutionState state : solutionStates) {
     printRow(state.queenIndex);
@@ -69,20 +71,17 @@ void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& cu
   printRow(currentState.queenIndex);
   std::cout << "======== ========" << std::endl;
 }
-#else
-void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {}
 #endif
 
 int main(int argc, char ** argv) {
   SolutionState state = { std::pow(2, N_QUEENS) - 1, 0, 0, 0, 0};
 
-  int solutionCounter = 0;
+  auto solutionCounter = 0;
 
   std::vector<SolutionState> solutionStates;
-  solutionStates.reserve(N_QUEENS - 1);
 
   while(true) {
-    if(state.allowedState == 0) {
+    if(state.allowedState.none()) {
       // backtrack
       if (solutionStates.size() == 0)
         break;
@@ -104,24 +103,23 @@ int main(int argc, char ** argv) {
     if (solutionStates.size() == N_QUEENS - 1) {
       solutionCounter += 1;
       printSolution(solutionStates, state);
-      exit(0);
       continue;
     }
 
     solutionStates.push_back(state);
 
-    unsigned int attackMask = 1 << state.queenIndex;
+    auto attackMask = 1 << state.queenIndex;
 
-    state.attackLeft = attackMask | state.attackLeft;
-    state.attackRight = attackMask | state.attackRight;
-    state.attackCenter = attackMask | state.attackCenter;
+    state.attackLeft |= attackMask;
+    state.attackRight |= attackMask;
+    state.attackCenter |= attackMask;
 
-    state.attackLeft = state.attackLeft >> 1;
-    state.attackRight = state.attackRight << 1;
+    state.attackLeft >>= 1;
+    state.attackRight <<= 1;
 
     state.allowedState = ~(state.attackLeft | state.attackRight | state.attackCenter);
   }
 
   // done
-  std::cout << "Solutions found: " << std::to_string(solutionCounter) << std::endl;
+  std::cout << "Solutions found: " << solutionCounter << std::endl;
 }

@@ -5,9 +5,9 @@ N-queens solutions
 
 To build for Linux:
 
-`g++ -std=c++11 -Os 8queens.cpp`
+`g++ -std=c++11 -Os n_queens.cpp`
 # OR
-`clang++ -std=c++11 -Os 8queens.cpp`
+`clang++ -std=c++11 -Os n_queens.cpp`
 
 To build for Windows, after running `vcvarsall.bat` to set up the MSVC environment:
-`cl.exe /EHsc /Ot 8queens.cpp`
+`cl.exe /EHsc /Ot n_queens.cpp`

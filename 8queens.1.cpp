@@ -32,6 +32,8 @@
 #include <cmath>
 #include <iostream>
 #include <vector>
+#include <thread>
+#include <atomic>
 
 #ifdef _MSC_VER
 #include <intrin.h>
@@ -39,15 +41,17 @@
 #endif
 
 #define N_QUEENS 8
-
+#define NO_PRINT 1
 #define THREADS 8
 
 struct SolutionState {
+  SolutionState& lastState;
   std::bitset<N_QUEENS> allowedState;
   unsigned int attackLeft;
   unsigned int attackRight;
   unsigned int attackCenter;
   unsigned long queenIndex;
+  unsigned int counter;
 };
 
 void printRow(unsigned int index) {
@@ -61,65 +65,57 @@ void printRow(unsigned int index) {
   std::cout << std::endl;
 }
 
-#ifndef NO_PRINT
-void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {
-  for (SolutionState state : solutionStates) {
-    printRow(state.queenIndex);
+void spawn_worker(SolutionState& state, std::atomic_int& solutionCounter) {
+  printRow(state.queenIndex);
+
+  unsigned int attackMask = state.allowedState.to_ulong();
+
+  state.attackLeft = attackMask | state.attackLeft;
+  state.attackRight = attackMask | state.attackRight;
+  state.attackCenter = attackMask | state.attackCenter;
+
+  state.attackLeft = state.attackLeft >> 1;
+  state.attackRight = state.attackRight << 1;
+
+  state.allowedState = ~(state.attackLeft | state.attackRight | state.attackCenter);
+
+  // win
+  if (state.counter == 7 && state.allowedState.any()) {
+    std::cout << "solution!" << std::endl;
+    exit(0);
+    solutionCounter++;
+    return;
   }
-  printRow(currentState.queenIndex);
-  std::cout << "======== ========" << std::endl;
-}
-#else
-void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {}
-#endif
 
-int main(int argc, char ** argv) {
-  SolutionState state = { std::pow(2, N_QUEENS) - 1, 0, 0, 0, 0};
-
-  int solutionCounter = 0;
-
-  std::vector<SolutionState> solutionStates;
-  solutionStates.reserve(N_QUEENS - 1);
-
-  while(true) {
-    if(state.allowedState == 0) {
-      // backtrack
-      if (solutionStates.size() == 0)
-        break;
-
-      state = solutionStates.back();
-      solutionStates.pop_back();
-
-      continue;
-    }
-
+  state.counter += 1;
+  while(state.allowedState.any()) {
 #ifdef _MSC_VER
     _BitScanForward(&state.queenIndex, state.allowedState.to_ulong());
 #else
     state.queenIndex = __builtin_ctz(state.allowedState.to_ulong());
 #endif
     state.allowedState.set(state.queenIndex, 0);
+    SolutionState newState = state;
+    newState.lastState = state;
 
-    // win
-    if (solutionStates.size() == N_QUEENS - 1) {
-      solutionCounter += 1;
-      printSolution(solutionStates, state);
-      exit(0);
-      continue;
-    }
+    newState.allowedState = 1 << newState.queenIndex;
 
-    solutionStates.push_back(state);
+    spawn_worker(newState, solutionCounter);
+  }
+}
 
-    unsigned int attackMask = 1 << state.queenIndex;
+int main(int argc, char **argv) {
+  SolutionState state = { 0, 0, 0, 0, 0, 0};
+  std::atomic_int solutionCounter(0);
+  unsigned long queenIndex;
 
-    state.attackLeft = attackMask | state.attackLeft;
-    state.attackRight = attackMask | state.attackRight;
-    state.attackCenter = attackMask | state.attackCenter;
+  for(unsigned long i = 0; i < N_QUEENS; i++) {
+    SolutionState newState = state;
 
-    state.attackLeft = state.attackLeft >> 1;
-    state.attackRight = state.attackRight << 1;
+    state.queenIndex = i;
+    newState.allowedState.set(i, 1);
 
-    state.allowedState = ~(state.attackLeft | state.attackRight | state.attackCenter);
+    spawn_worker(newState, solutionCounter);
   }
 
   // done

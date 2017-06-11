@@ -16,7 +16,6 @@
 
 struct SolutionState {
   SolutionState* lastState;
-  std::bitset<N_QUEENS> allowedState;
   unsigned long attackLeft;
   unsigned long attackRight;
   unsigned long attackCenter;
@@ -56,21 +55,21 @@ void printSolution(SolutionState& state) {
 
 void spawnWorker(SolutionState& state, std::atomic_int& solutionCounter) {
   // win
-  if (state.counter == N_QUEENS - 1 && state.allowedState.any()) {
+  if (state.counter == N_QUEENS - 1) {
     printSolution(state);
 
     solutionCounter++;
     return;
   }
 
-  auto attackMask = state.allowedState.to_ulong();
+  auto attackMask = 1 << state.queenIndex;
 
   auto attackLeft = (attackMask | state.attackLeft) >> 1;
   auto attackRight = (attackMask | state.attackRight) << 1;
   auto attackCenter = attackMask | state.attackCenter;
 
   SolutionState newState = {
-    &state, 0, attackLeft, attackRight, attackCenter, 0, state.counter + 1,
+    &state, attackLeft, attackRight, attackCenter, 0, state.counter + 1,
   };
 
   std::bitset<N_QUEENS> newAllowedState = ~(newState.attackLeft | newState.attackRight | newState.attackCenter);
@@ -82,19 +81,17 @@ void spawnWorker(SolutionState& state, std::atomic_int& solutionCounter) {
     newState.queenIndex = __builtin_ctz(newAllowedState.to_ulong());
 #endif
     newAllowedState.set(newState.queenIndex, 0);
-    newState.allowedState = 1 << newState.queenIndex;
 
     spawnWorker(newState, solutionCounter);
   }
 }
 
 int main(int argc, char **argv) {
-  SolutionState state = { nullptr, 0, 0, 0, 0, 0, 0};
+  SolutionState state = { nullptr, 0, 0, 0, 0, 0};
   std::atomic_int solutionCounter(0);
 
   for(auto i = 0; i < N_QUEENS; i++) {
     state.queenIndex = i;
-    state.allowedState = 1 << i;
 
     spawnWorker(state, solutionCounter);
   }

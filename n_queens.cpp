@@ -62,9 +62,9 @@ void printRow(unsigned int index) {
 }
 
 #ifdef NO_PRINT
-void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {}
+void printSolution(const std::vector<SolutionState>& solutionStates, const SolutionState& currentState) {}
 #else
-void printSolution(std::vector<SolutionState>& solutionStates, SolutionState& currentState) {
+void printSolution(const std::vector<SolutionState>& solutionStates, const SolutionState& currentState) {
   for (SolutionState state : solutionStates) {
     printRow(state.queenIndex);
   }

@@ -52,15 +52,16 @@ void printSolution(std::shared_ptr<SolutionState> state) {}
 void printSolution(std::shared_ptr<SolutionState> state) {
   std::vector<int> queenIndexes;
 
-  std::shared_ptr<SolutionState> s = state;
-
-  while(s != nullptr) {
-    queenIndexes.push_back(s->queenIndex);
-    s = s->lastState;
+  while(state != nullptr) {
+    queenIndexes.push_back(state->queenIndex);
+    state = state->lastState;
   }
 
-  for (auto rit = queenIndexes.rbegin(); rit != queenIndexes.rend(); ++rit)
-    printRow(*rit);
+  while(!queenIndexes.empty()) {
+    auto index = queenIndexes.back();
+    queenIndexes.pop_back();
+    printRow(index);
+  }
 
   std::cout << "======== ========" << std::endl;
 }
@@ -68,13 +69,12 @@ void printSolution(std::shared_ptr<SolutionState> state) {
 
 void worker(std::atomic_int& solutionCounter, std::queue<std::shared_ptr<SolutionState>>& workQueue, std::mutex& qTex) {
   while(true) {
-    qTex.lock();
     // no work left, quit
     if(workQueue.empty()) {
-      qTex.unlock();
       return;
     }
 
+    qTex.lock();
     std::shared_ptr<SolutionState> state = workQueue.front();
     workQueue.pop();
     qTex.unlock();
@@ -83,7 +83,7 @@ void worker(std::atomic_int& solutionCounter, std::queue<std::shared_ptr<Solutio
     if (state->counter == N_QUEENS - 1 && state->allowedState.any()) {
       printSolution(state);
 
-      solutionCounter++;
+      solutionCounter.fetch_add(1, std::memory_order_acq_rel);
       continue;
     }
 

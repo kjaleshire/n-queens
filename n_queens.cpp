@@ -41,9 +41,9 @@
 
 struct SolutionState {
   std::bitset<N_QUEENS> allowedState;
-  unsigned int attackLeft;
-  unsigned int attackRight;
-  unsigned int attackCenter;
+  int attackLeft;
+  int attackRight;
+  int attackCenter;
   unsigned long queenIndex;
 };
 
@@ -59,13 +59,13 @@ void printRow(unsigned int index) {
 }
 
 #ifdef NO_PRINT
-void printSolution(const std::vector<SolutionState>& solutionStates, const SolutionState& currentState) {}
+void printSolution(const std::vector<SolutionState>& solutionStates, const SolutionState& state) {}
 #else
-void printSolution(const std::vector<SolutionState>& solutionStates, const SolutionState& currentState) {
-  for (SolutionState state : solutionStates) {
-    printRow(state.queenIndex);
+void printSolution(const std::vector<SolutionState>& solutionStates, const SolutionState& state) {
+  for (SolutionState s : solutionStates) {
+    printRow(s.queenIndex);
   }
-  printRow(currentState.queenIndex);
+  printRow(state.queenIndex);
   std::cout << "======== ========" << std::endl;
 }
 #endif
@@ -80,7 +80,7 @@ int main(int argc, char ** argv) {
   while(true) {
     if(state.allowedState.none()) {
       // backtrack
-      if (solutionStates.size() == 0)
+      if (solutionStates.empty())
         break;
 
       state = solutionStates.back();

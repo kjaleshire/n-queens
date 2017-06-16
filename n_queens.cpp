@@ -1,5 +1,3 @@
-// c++ vector
-
 // next state:
 //   if current allowed state is empty
 //     if vector is empty
@@ -38,16 +36,15 @@
 #pragma intrinsic(_BitScanForward)
 #endif
 
-#define N_QUEENS 8
+#define N_QUEENS 5
 // #define NO_PRINT 1
-#define THREADS 8
 
 struct SolutionState {
   std::bitset<N_QUEENS> allowedState;
   unsigned int attackLeft;
   unsigned int attackRight;
   unsigned int attackCenter;
-  unsigned int queenIndex;
+  unsigned long queenIndex;
 };
 
 void printRow(unsigned int index) {

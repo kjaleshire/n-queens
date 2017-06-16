@@ -12,9 +12,11 @@
 #pragma intrinsic(_BitScanForward)
 #endif
 
-#define N_QUEENS 4
+#define N_QUEENS 5
 // #define NO_PRINT 1
-#define THREADS 8
+#define N_THREADS 1
+
+std::mutex coutTex;
 
 class SolutionState {
 
@@ -51,6 +53,7 @@ void printSolution(std::shared_ptr<SolutionState> state) {
   std::vector<int> queenIndexes;
 
   std::shared_ptr<SolutionState> s = state;
+
   while(s != nullptr) {
     queenIndexes.push_back(s->queenIndex);
     s = s->lastState;
@@ -66,20 +69,22 @@ void printSolution(std::shared_ptr<SolutionState> state) {
 void worker(std::atomic_int& solutionCounter, std::queue<std::shared_ptr<SolutionState>>& workQueue, std::mutex& qTex) {
   while(true) {
     qTex.lock();
+    // no work left, quit
+    if(workQueue.empty()) {
+      qTex.unlock();
+      return;
+    }
+
     std::shared_ptr<SolutionState> state = workQueue.front();
     workQueue.pop();
     qTex.unlock();
-
-    // no work left, quit
-    if(state == nullptr)
-      break;
 
     // win
     if (state->counter == N_QUEENS - 1 && state->allowedState.any()) {
       printSolution(state);
 
       solutionCounter++;
-      return;
+      continue;
     }
 
     auto attackMask = state->allowedState.to_ulong();
@@ -122,7 +127,7 @@ int main(int argc, char **argv) {
     workQueue.push(state);
   }
 
-  for(auto i = 0; i < 1; i++) {
+  for(auto i = 0; i < N_THREADS; i++) {
     std::thread t(worker, std::ref(solutionCounter), std::ref(workQueue), std::ref(qTex));
     threadHandles.push_back(std::move(t));
   }

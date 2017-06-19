@@ -1,8 +1,3 @@
-// n_queens_threaded.cpp : Defines the entry point for the console application.
-//
-
-#include "stdafx.h"
-
 #include <bitset>
 #include <cmath>
 #include <iostream>
@@ -19,9 +14,9 @@
 #pragma intrinsic(_BitScanForward)
 #endif
 
-#define N_QUEENS 12
+#define N_QUEENS 16
 #define NO_PRINT 1
-#define N_THREADS 4
+#define N_THREADS 1
 
 std::mutex coutTex;
 
@@ -75,7 +70,11 @@ void printSolution(std::shared_ptr<SolutionState> state) {
 }
 #endif
 
-void lockBoolean(std::atomic_bool& lock) {
+void lock(std::mutex& lock) {
+	lock.lock();
+}
+
+void lock(std::atomic_bool& lock) {
 	auto expected = false;
 	while (true) {
 		if (!lock.compare_exchange_weak(expected, true, std::memory_order_acquire, std::memory_order_relaxed))
@@ -85,25 +84,26 @@ void lockBoolean(std::atomic_bool& lock) {
 	}
 }
 
-void unlockBoolean(std::atomic_bool& lock) {
+void unlock(std::mutex& lock) {
+	lock.unlock();
+}
+
+void unlock(std::atomic_bool& lock) {
 	lock.store(false, std::memory_order_release);
 }
 
-void worker(std::atomic_int& solutionCounter, std::stack<std::shared_ptr<SolutionState>>& workQueue, std::atomic_bool& qTex) {
+void worker(std::atomic_int& solutionCounter, std::stack<std::shared_ptr<SolutionState>>& workQueue, std::mutex& qTex) {
 	while (true) {
-		lockBoolean(qTex);
-		//qTex.lock();
+		lock(qTex);
 		// no work left, quit
 		if (workQueue.empty()) {
-			//qTex.unlock();
-			unlockBoolean(qTex);
+			unlock(qTex);
 			return;
 		}
 
 		auto state = workQueue.top();
 		workQueue.pop();
-		unlockBoolean(qTex);
-		//qTex.unlock();
+		unlock(qTex);
 
 		// std::cout << state->counter << " ";
 		// printRow(state->queenIndex);
@@ -113,7 +113,7 @@ void worker(std::atomic_int& solutionCounter, std::stack<std::shared_ptr<Solutio
 		// }
 		// std::cout << std::endl;
 
-		// win
+		// found win state
 		if (state->counter == N_QUEENS) {
 			printSolution(state);
 			// std::cout << ".";
@@ -147,11 +147,9 @@ void worker(std::atomic_int& solutionCounter, std::stack<std::shared_ptr<Solutio
 			// }
 			// std::cout << std::endl;
 
-			lockBoolean(qTex);
-			//qTex.lock();
+			lock(qTex);
 			workQueue.push(newState);
-			//qTex.unlock();
-			unlockBoolean(qTex);
+			unlock(qTex);
 		}
 	}
 }
@@ -171,7 +169,7 @@ int main(int argc, char **argv) {
 	}
 
 	for (auto i = 0; i < N_THREADS; i++) {
-		std::thread t(worker, std::ref(solutionCounter), std::ref(workQueue), std::ref(qLock));
+		std::thread t(worker, std::ref(solutionCounter), std::ref(workQueue), std::ref(qTex));
 		threadHandles[i] = std::move(t);
 	}
 

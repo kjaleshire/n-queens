@@ -36,8 +36,8 @@
 #pragma intrinsic(_BitScanForward)
 #endif
 
-#define N_QUEENS 5
-// #define NO_PRINT 1
+#define N_QUEENS 16
+#define NO_PRINT 1
 
 struct SolutionState {
   std::bitset<N_QUEENS> allowedState;
